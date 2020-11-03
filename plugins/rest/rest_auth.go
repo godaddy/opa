@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/open-policy-agent/opa/util"
 )
 
 // defaultTLSConfig defines standard TLS configurations based on the Config
@@ -45,8 +47,10 @@ func defaultRoundTripperClient(t *tls.Config, timeout int64) *http.Client {
 	tr.ResponseHeaderTimeout = time.Duration(timeout) * time.Second
 	tr.TLSClientConfig = t
 
-	c := *http.DefaultClient
-	c.Transport = tr
+	c := http.Client{
+		Timeout:   time.Duration(timeout) * time.Second,
+		Transport: tr,
+	}
 	return &c
 }
 
@@ -170,6 +174,7 @@ func (ap *oauth2ClientCredentialsAuthPlugin) requestToken() (*oauth2Token, error
 		return nil, err
 	}
 
+	defer util.Close(response)
 	bodyRaw, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err

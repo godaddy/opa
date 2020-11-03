@@ -15,9 +15,7 @@ import (
 // leak can occur.
 func Close(resp *http.Response) {
 	if resp != nil && resp.Body != nil {
-		if _, err := io.Copy(ioutil.Discard, resp.Body); err != nil {
-			return
-		}
+		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/internal/version"
 	"github.com/open-policy-agent/opa/topdown/builtins"
+	"github.com/open-policy-agent/opa/util"
 )
 
 const defaultHTTPRequestTimeoutEnv = "HTTP_SEND_TIMEOUT"
@@ -583,7 +584,7 @@ func checkHTTPSendInterQueryCache(bctx BuiltinContext, key ast.Object, req *http
 		return nil, err
 	}
 
-	defer result.Body.Close()
+	defer util.Close(result)
 
 	var newValue ast.Value
 	var size int
@@ -768,6 +769,7 @@ func revalidateCachedResponse(req *http.Request, client *http.Client, resp *inte
 		return response, false, nil
 	}
 
+	defer util.Close(response)
 	return nil, false, nil
 }
 

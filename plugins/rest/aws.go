@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/open-policy-agent/opa/util"
 )
 
 const (
@@ -45,6 +47,8 @@ const (
 	awsRegionEnvVar               = "AWS_REGION"
 	awsRoleArnEnvVar              = "AWS_ROLE_ARN"
 	awsWebIdentityTokenFileEnvVar = "AWS_WEB_IDENTITY_TOKEN_FILE"
+
+	defaultTimeout = 10
 )
 
 // awsCredentials represents the credentials obtained from an AWS credential provider
@@ -306,7 +310,12 @@ func (cs *awsWebIdentityCredentialService) refreshFromService() error {
 	stsRequestURL.RawQuery = queryVals.Encode()
 
 	// construct an HTTP client with a reasonably short timeout
-	client := &http.Client{Timeout: time.Second * 10}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.ResponseHeaderTimeout = time.Duration(defaultTimeout) * time.Second
+	client := &http.Client{
+		Timeout:   time.Second * time.Duration(defaultTimeout),
+		Transport: tr,
+	}
 	req, err := http.NewRequest(http.MethodGet, stsRequestURL.String(), nil)
 	if err != nil {
 		return errors.New("unable to construct STS HTTP request: " + err.Error())
@@ -354,7 +363,8 @@ func doMetaDataRequestWithClient(req *http.Request, client *http.Client, desc st
 		// some kind of catastrophe talking to the EC2 service
 		return nil, errors.New(desc + " HTTP request failed: " + err.Error())
 	}
-	defer resp.Body.Close()
+
+	defer util.Close(resp)
 
 	logrus.WithFields(logrus.Fields{
 		"url":     req.URL.String(),
