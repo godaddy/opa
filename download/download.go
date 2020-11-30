@@ -8,6 +8,7 @@ package download
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"path"
@@ -194,7 +195,12 @@ func (d *Downloader) download(ctx context.Context, m metrics.Metrics) (*bundle.B
 	case http.StatusUnauthorized:
 		return nil, "", fmt.Errorf("server replied with not authorized")
 	default:
-		return nil, "", fmt.Errorf("server replied with HTTP %v", resp.StatusCode)
+		bodyBytes, bodyErr := ioutil.ReadAll(resp.Body)
+		if bodyErr != nil {
+			return nil, "", fmt.Errorf("server replied with HTTP %v", resp.StatusCode)
+		} else {
+			return nil, "", fmt.Errorf("server replied with HTTP %v: %v", resp.StatusCode, string(bodyBytes))
+		}
 	}
 }
 
