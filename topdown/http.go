@@ -634,7 +634,7 @@ func insertIntoHTTPSendInterQueryCache(bctx BuiltinContext, key, value ast.Value
 		return err
 	}
 
-	requestCache.Insert(key, pcv)
+	//requestCache.Insert(key, pcv)
 	return nil
 }
 
@@ -1034,10 +1034,10 @@ func (c *interQueryCache) InsertIntoCache(value *http.Response) (ast.Value, erro
 	}
 
 	// fallback to the http send cache if error encountered while inserting response in inter-query cache
-//	err = insertIntoHTTPSendInterQueryCache(c.bctx, c.key, result, value, size, c.forceCacheParams != nil)
-//	if err != nil {
-//		insertIntoHTTPSendCache(c.bctx, c.key, result)
-//	}
+	err = insertIntoHTTPSendInterQueryCache(c.bctx, c.key, result, value, size, c.forceCacheParams != nil)
+	if err != nil {
+		insertIntoHTTPSendCache(c.bctx, c.key, result)
+	}
 	return result, nil
 }
 
