@@ -134,7 +134,7 @@ func getHTTPResponse(bctx BuiltinContext, req ast.Object) (*ast.Term, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer util.Close(httpResp)
+    defer util.Close(httpResp)
 		// add result to cache
 		resp, err = reqExecutor.InsertIntoCache(httpResp)
 		if err != nil {
@@ -1028,16 +1028,16 @@ func (c *interQueryCache) CheckCache() (ast.Value, error) {
 
 // InsertIntoCache inserts the key set on this object into the cache with the given value
 func (c *interQueryCache) InsertIntoCache(value *http.Response) (ast.Value, error) {
-	result, size, err := formatHTTPResponseToAST(value, c.forceJSONDecode)
+	result, _, err := formatHTTPResponseToAST(value, c.forceJSONDecode)
 	if err != nil {
 		return nil, handleHTTPSendErr(c.bctx, err)
 	}
 
 	// fallback to the http send cache if error encountered while inserting response in inter-query cache
-	err = insertIntoHTTPSendInterQueryCache(c.bctx, c.key, result, value, size, c.forceCacheParams != nil)
-	if err != nil {
-		insertIntoHTTPSendCache(c.bctx, c.key, result)
-	}
+//	err = insertIntoHTTPSendInterQueryCache(c.bctx, c.key, result, value, size, c.forceCacheParams != nil)
+//	if err != nil {
+//		insertIntoHTTPSendCache(c.bctx, c.key, result)
+//	}
 	return result, nil
 }
 
