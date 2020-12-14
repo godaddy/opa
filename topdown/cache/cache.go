@@ -6,6 +6,8 @@
 package cache
 
 import (
+  "fmt"
+
 	"container/list"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -73,6 +75,7 @@ type InterQueryCache interface {
 
 // NewInterQueryCache returns a new inter-query cache.
 func NewInterQueryCache(config *Config) InterQueryCache {
+  fmt.Sprintln("detected max size bytes", *config.InterQueryBuiltinCache.MaxSizeBytes)
 	return &cache{
 		items: map[string]InterQueryCacheValue{},
 		usage: 0,
@@ -115,6 +118,7 @@ func (c *cache) unsafeInsert(k ast.Value, v InterQueryCacheValue) (dropped int) 
 
 	if c.limit > 0 {
 		for key := c.l.Front(); key != nil && (c.usage+size > c.limit); key = key.Next() {
+      fmt.Println("key was dropped!")
 			dropKey := key.Value.(ast.Value)
 			c.unsafeDelete(dropKey)
 			c.l.Remove(key)
