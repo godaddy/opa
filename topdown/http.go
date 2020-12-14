@@ -627,9 +627,9 @@ func insertIntoHTTPSendInterQueryCache(bctx BuiltinContext, key, value ast.Value
 		return nil
 	}
 
-	requestCache := bctx.InterQueryBuiltinCache
+	//requestCache := bctx.InterQueryBuiltinCache
 
-	pcv, err := newInterQueryCacheValue(resp, value, size)
+	_, err := newInterQueryCacheValue(resp, value, size)
 	if err != nil {
 		return err
 	}
