@@ -1028,7 +1028,7 @@ func (c *interQueryCache) CheckCache() (ast.Value, error) {
 
 // InsertIntoCache inserts the key set on this object into the cache with the given value
 func (c *interQueryCache) InsertIntoCache(value *http.Response) (ast.Value, error) {
-	result, _, err := formatHTTPResponseToAST(value, c.forceJSONDecode)
+	result, size, err := formatHTTPResponseToAST(value, c.forceJSONDecode)
 	if err != nil {
 		return nil, handleHTTPSendErr(c.bctx, err)
 	}
