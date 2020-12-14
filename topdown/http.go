@@ -23,7 +23,6 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/internal/version"
 	"github.com/open-policy-agent/opa/topdown/builtins"
-	"github.com/open-policy-agent/opa/util"
 )
 
 const defaultHTTPRequestTimeoutEnv = "HTTP_SEND_TIMEOUT"
@@ -83,35 +82,15 @@ func builtinHTTPSend(bctx BuiltinContext, args []*ast.Term, iter func(*ast.Term)
 		return handleBuiltinErr(ast.HTTPSend.Name, bctx.Location, err)
 	}
 
-	raiseError, err := getRaiseErrorValue(req)
-	if err != nil {
-		return handleBuiltinErr(ast.HTTPSend.Name, bctx.Location, err)
+	_, blahErr := getRaiseErrorValue(req)
+	if blahErr != nil {
+		return handleBuiltinErr(ast.HTTPSend.Name, bctx.Location, blahErr)
 	}
 
-	result, err := getHTTPResponse(bctx, req)
-	if err != nil {
-		if raiseError {
-			return handleHTTPSendErr(bctx, err)
-		}
-
-		obj := ast.NewObject()
-		obj.Insert(ast.StringTerm("status_code"), ast.IntNumberTerm(0))
-
-		errObj := ast.NewObject()
-
-		switch err.(type) {
-		case *url.Error:
-			errObj.Insert(ast.StringTerm("code"), ast.StringTerm(HTTPSendNetworkErr))
-		default:
-			errObj.Insert(ast.StringTerm("code"), ast.StringTerm(HTTPSendInternalErr))
-		}
-
-		errObj.Insert(ast.StringTerm("message"), ast.StringTerm(err.Error()))
-		obj.Insert(ast.StringTerm("error"), ast.NewTerm(errObj))
-
-		result = ast.NewTerm(obj)
-	}
-	return iter(result)
+	result := ast.NewObject()
+	result.Insert(ast.StringTerm("status_code"), ast.IntNumberTerm(200))
+	result.Insert(ast.StringTerm("raw_body"), ast.StringTerm("blah"))
+	return iter(ast.NewTerm(result))
 }
 
 func getHTTPResponse(bctx BuiltinContext, req ast.Object) (*ast.Term, error) {
@@ -134,7 +113,6 @@ func getHTTPResponse(bctx BuiltinContext, req ast.Object) (*ast.Term, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer util.Close(httpResp)
 		// add result to cache
 		resp, err = reqExecutor.InsertIntoCache(httpResp)
 		if err != nil {
