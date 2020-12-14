@@ -75,7 +75,7 @@ type InterQueryCache interface {
 
 // NewInterQueryCache returns a new inter-query cache.
 func NewInterQueryCache(config *Config) InterQueryCache {
-  fmt.Sprintln("detected max size bytes", *config.InterQueryBuiltinCache.MaxSizeBytes)
+  fmt.Println("detected max size bytes", *config.InterQueryBuiltinCache.MaxSizeBytes)
 	return &cache{
 		items: map[string]InterQueryCacheValue{},
 		usage: 0,
@@ -116,7 +116,9 @@ func (c *cache) Delete(k ast.Value) {
 func (c *cache) unsafeInsert(k ast.Value, v InterQueryCacheValue) (dropped int) {
 	size := v.SizeInBytes()
 
+  fmt.Println("detected size in bytes", size)
 	if c.limit > 0 {
+    fmt.Println("usage plus size in bytes is", c.usage+size)
 		for key := c.l.Front(); key != nil && (c.usage+size > c.limit); key = key.Next() {
       fmt.Println("key was dropped!")
 			dropKey := key.Value.(ast.Value)
