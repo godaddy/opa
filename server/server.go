@@ -32,6 +32,7 @@ import (
 
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
+	cfg "github.com/open-policy-agent/opa/config"
 	"github.com/open-policy-agent/opa/metrics"
 	"github.com/open-policy-agent/opa/plugins"
 	bundlePlugin "github.com/open-policy-agent/opa/plugins/bundle"
@@ -253,6 +254,7 @@ func (s *Server) WithMetrics(m Metrics) *Server {
 // WithManager sets the plugins manager used by the server.
 func (s *Server) WithManager(manager *plugins.Manager) *Server {
 	s.manager = manager
+	s.manager.RegisterReconfigureListener(s.updateConfig)
 	return s
 }
 
@@ -2212,6 +2214,10 @@ func (s *Server) generateDefaultDecisionPath() string {
 	// Assume the path is safe to transition back to a url
 	p, _ := s.manager.Config.DefaultDecisionRef().Ptr()
 	return p
+}
+
+func (s *Server) updateConfig(config *cfg.Config, cacheConfig *iCache.Config) {
+	s.interQueryBuiltinCache.UpdateConfig(cacheConfig)
 }
 
 // parsePatchPathEscaped returns a new path for the given escaped str.

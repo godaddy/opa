@@ -69,6 +69,7 @@ type InterQueryCache interface {
 	Get(key ast.Value) (value InterQueryCacheValue, found bool)
 	Insert(key ast.Value, value InterQueryCacheValue) int
 	Delete(key ast.Value)
+	UpdateConfig(config *Config)
 }
 
 // NewInterQueryCache returns a new inter-query cache.
@@ -108,6 +109,15 @@ func (c *cache) Delete(k ast.Value) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	c.unsafeDelete(k)
+}
+
+func (c *cache) UpdateConfig(config *Config) {
+	if config == nil {
+		return
+	}
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.limit = *config.InterQueryBuiltinCache.MaxSizeBytes
 }
 
 func (c *cache) unsafeInsert(k ast.Value, v InterQueryCacheValue) (dropped int) {
