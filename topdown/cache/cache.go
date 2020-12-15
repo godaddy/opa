@@ -34,6 +34,7 @@ type InterQueryBuiltinCacheConfig struct {
 // ParseCachingConfig returns the config for the inter-query cache.
 func ParseCachingConfig(raw []byte) (*Config, error) {
 	if raw == nil {
+    fmt.Println("no config")
 		maxSize := new(int64)
 		*maxSize = defaultMaxSizeBytes
 		return &Config{InterQueryBuiltinCache: InterQueryBuiltinCacheConfig{MaxSizeBytes: maxSize}}, nil
@@ -49,6 +50,7 @@ func ParseCachingConfig(raw []byte) (*Config, error) {
 		return nil, err
 	}
 
+  fmt.Println("Found config", config)
 	return &config, nil
 }
 

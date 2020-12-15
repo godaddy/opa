@@ -251,6 +251,7 @@ func New(raw []byte, id string, store storage.Store, opts ...func(*Manager)) (*M
 		return nil, err
 	}
 
+  fmt.Println("creating new manager")
 	interQueryBuiltinCacheConfig, err := cache.ParseCachingConfig(parsedConfig.Caching)
 	if err != nil {
 		return nil, err
@@ -485,6 +486,7 @@ func (m *Manager) Stop(ctx context.Context) {
 
 // Reconfigure updates the configuration on the manager.
 func (m *Manager) Reconfigure(config *config.Config) error {
+  fmt.Println("reconfigured!")
 	opts := cfg.ServiceOptions{
 		Raw:        config.Services,
 		AuthPlugin: m.AuthPlugin,
