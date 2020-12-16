@@ -32,7 +32,6 @@ import (
 
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/bundle"
-	cfg "github.com/open-policy-agent/opa/config"
 	"github.com/open-policy-agent/opa/metrics"
 	"github.com/open-policy-agent/opa/plugins"
 	bundlePlugin "github.com/open-policy-agent/opa/plugins/bundle"
@@ -169,6 +168,7 @@ func (s *Server) Init(ctx context.Context) (*Server, error) {
 	s.defaultDecisionPath = s.generateDefaultDecisionPath()
 
 	s.interQueryBuiltinCache = iCache.NewInterQueryCache(s.manager.InterQueryBuiltinCacheConfig())
+	s.manager.RegisterCacheTrigger(s.updateCacheConfig)
 
 	return s, s.store.Commit(ctx, txn)
 }
@@ -254,7 +254,6 @@ func (s *Server) WithMetrics(m Metrics) *Server {
 // WithManager sets the plugins manager used by the server.
 func (s *Server) WithManager(manager *plugins.Manager) *Server {
 	s.manager = manager
-	s.manager.RegisterReconfigureListener(s.updateConfig)
 	return s
 }
 
@@ -2216,7 +2215,7 @@ func (s *Server) generateDefaultDecisionPath() string {
 	return p
 }
 
-func (s *Server) updateConfig(config *cfg.Config, cacheConfig *iCache.Config) {
+func (s *Server) updateCacheConfig(cacheConfig *iCache.Config) {
 	s.interQueryBuiltinCache.UpdateConfig(cacheConfig)
 }
 

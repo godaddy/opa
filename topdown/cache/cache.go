@@ -75,19 +75,19 @@ type InterQueryCache interface {
 // NewInterQueryCache returns a new inter-query cache.
 func NewInterQueryCache(config *Config) InterQueryCache {
 	return &cache{
-		items: map[string]InterQueryCacheValue{},
-		usage: 0,
-		limit: *config.InterQueryBuiltinCache.MaxSizeBytes,
-		l:     list.New(),
+		items:  map[string]InterQueryCacheValue{},
+		usage:  0,
+		config: config,
+		l:      list.New(),
 	}
 }
 
 type cache struct {
-	items map[string]InterQueryCacheValue
-	usage int64
-	limit int64
-	l     *list.List
-	mtx   sync.Mutex
+	items  map[string]InterQueryCacheValue
+	usage  int64
+	config *Config
+	l      *list.List
+	mtx    sync.Mutex
 }
 
 // Insert inserts a key k into the cache with value v.
@@ -117,14 +117,14 @@ func (c *cache) UpdateConfig(config *Config) {
 	}
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	c.limit = *config.InterQueryBuiltinCache.MaxSizeBytes
+	c.config = config
 }
 
 func (c *cache) unsafeInsert(k ast.Value, v InterQueryCacheValue) (dropped int) {
 	size := v.SizeInBytes()
-
-	if c.limit > 0 {
-		for key := c.l.Front(); key != nil && (c.usage+size > c.limit); key = key.Next() {
+	limit := c.maxSizeBytes()
+	if limit > 0 {
+		for key := c.l.Front(); key != nil && (c.usage+size > limit); key = key.Next() {
 			dropKey := key.Value.(ast.Value)
 			c.unsafeDelete(dropKey)
 			c.l.Remove(key)
@@ -151,4 +151,11 @@ func (c *cache) unsafeDelete(k ast.Value) {
 
 	c.usage -= int64(value.SizeInBytes())
 	delete(c.items, k.String())
+}
+
+func (c *cache) maxSizeBytes() int64 {
+	if c.config == nil {
+		return defaultMaxSizeBytes
+	}
+	return *c.config.InterQueryBuiltinCache.MaxSizeBytes
 }
