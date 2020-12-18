@@ -19,6 +19,7 @@ import (
 	"net/http/pprof"
 	"net/url"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -134,9 +135,29 @@ func New() *Server {
 	return &s
 }
 
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
+func PrintMemUsage() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+}
+
 // Init initializes the server. This function MUST be called before starting any loops
 // from s.Listeners().
 func (s *Server) Init(ctx context.Context) (*Server, error) {
+	go func() {
+		t := time.Tick(time.Second * 5)
+		for {
+			<-t
+			PrintMemUsage()
+		}
+	}()
 	s.initRouters()
 	s.Handler = s.initHandlerAuth(s.Handler)
 	s.DiagnosticHandler = s.initHandlerAuth(s.DiagnosticHandler)
@@ -597,6 +618,7 @@ func (s *Server) initRouters() {
 		mainRouter.Handle("/debug/pprof/block", pprof.Handler("block"))
 		mainRouter.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 		mainRouter.Handle("/debug/pprof/mutex", pprof.Handler("mutex"))
+		mainRouter.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
 		mainRouter.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		mainRouter.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		mainRouter.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
