@@ -23,6 +23,13 @@ import (
 	"github.com/open-policy-agent/opa/util"
 )
 
+// Transport is the interface expected for custom implementations
+// that ship logs to their destination. Transports are only used
+// when custom_transport is true in config.
+type Transport interface {
+	Send(ctx context.Context, partitionName string, req *UpdateRequestV1) error
+}
+
 // UpdateRequestV1 represents the status update message that OPA sends to
 // remote HTTP endpoints.
 type UpdateRequestV1 struct {
@@ -50,14 +57,18 @@ type Plugin struct {
 	lastPluginStatuses map[string]*plugins.Status
 	pluginStatusCh     chan map[string]*plugins.Status
 	logger             sdk.Logger
+	transport          Transport
 }
 
 // Config contains configuration for the plugin.
 type Config struct {
-	Service       string `json:"service"`
-	PartitionName string `json:"partition_name,omitempty"`
-	ConsoleLogs   bool   `json:"console"`
+	Service         string `json:"service"`
+	PartitionName   string `json:"partition_name,omitempty"`
+	ConsoleLogs     bool   `json:"console"`
+	CustomTransport bool   `json:"custom_transport"`
 }
+
+var transports map[string]Transport
 
 func (c *Config) validateAndInjectDefaults(services []string) error {
 
@@ -85,6 +96,15 @@ func (c *Config) validateAndInjectDefaults(services []string) error {
 	// If a service wasn't found, and console logging isn't enabled.
 	if c.Service == "" && !c.ConsoleLogs {
 		return fmt.Errorf("invalid status config, must have a `service` target or `console` logging specified")
+	}
+
+	if c.CustomTransport {
+		if c.Service == "" {
+			return fmt.Errorf("invalid status config, must have a `service` when `custom_transport` is enabled")
+		}
+		if !transportExists(c.Service) {
+			return fmt.Errorf("no status transport registered for key %q", c.Service)
+		}
 	}
 
 	return nil
@@ -122,6 +142,10 @@ func New(parsedConfig *Config, manager *plugins.Manager) *Plugin {
 		reconfig:       make(chan interface{}),
 		pluginStatusCh: make(chan map[string]*plugins.Status),
 		logger:         manager.Logger().WithFields(map[string]interface{}{"plugin": Name}),
+	}
+
+	if parsedConfig.CustomTransport {
+		p.transport = getTransport(parsedConfig.Service)
 	}
 
 	p.manager.UpdatePluginStatus(Name, &plugins.Status{State: plugins.StateNotReady})
@@ -271,6 +295,10 @@ func (p *Plugin) oneShot(ctx context.Context) error {
 	}
 
 	if p.config.Service != "" {
+		if p.config.CustomTransport {
+			err := p.transport.Send(ctx, p.config.PartitionName, req)
+			return fmt.Errorf("status update failed: %w", err)
+		}
 		resp, err := p.manager.Client(p.config.Service).
 			WithJSON(req).
 			Do(ctx, "POST", fmt.Sprintf("/status/%v", p.config.PartitionName))
@@ -303,6 +331,9 @@ func (p *Plugin) reconfigure(config interface{}) {
 		return
 	}
 
+	if newConfig.CustomTransport {
+	}
+
 	p.logger.Info("Status reporter configuration changed.")
 	p.config = *newConfig
 }
@@ -321,4 +352,19 @@ func (p *Plugin) logUpdate(update *UpdateRequestV1) error {
 		"type": "openpolicyagent.org/status",
 	}).Info("Status Log")
 	return nil
+}
+
+func transportExists(id string) bool {
+	_, ok := transports[id]
+	return ok
+}
+
+func getTransport(id string) Transport {
+	transport, _ := transports[id]
+	return transport
+}
+
+// RegisterTransport registers a Transport for custom log shipping
+func RegisterTransport(id string, t Transport) {
+	transports[id] = t
 }

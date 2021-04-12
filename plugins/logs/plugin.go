@@ -34,6 +34,13 @@ import (
 	"github.com/open-policy-agent/opa/util"
 )
 
+// Transport is the interface expected for custom implementations
+// that ship logs to their destination. Transports are only used
+// when custom_transport is true in config.
+type Transport interface {
+	Send(ctx context.Context, partitionName string, data []byte) error
+}
+
 // Logger defines the interface for decision logging plugins.
 type Logger interface {
 	plugins.Plugin
@@ -77,6 +84,8 @@ func (b *BundleInfoV1) AST() ast.Value {
 	}
 	return result
 }
+
+var transports map[string]Transport
 
 // Key ast.Term values for the Rego AST representation of the EventV1
 var labelsKey = ast.StringTerm("labels")
@@ -229,12 +238,13 @@ type ReportingConfig struct {
 
 // Config represents the plugin configuration.
 type Config struct {
-	Plugin        *string         `json:"plugin"`
-	Service       string          `json:"service"`
-	PartitionName string          `json:"partition_name,omitempty"`
-	Reporting     ReportingConfig `json:"reporting"`
-	MaskDecision  *string         `json:"mask_decision"`
-	ConsoleLogs   bool            `json:"console"`
+	Plugin          *string         `json:"plugin"`
+	Service         string          `json:"service"`
+	PartitionName   string          `json:"partition_name,omitempty"`
+	Reporting       ReportingConfig `json:"reporting"`
+	MaskDecision    *string         `json:"mask_decision"`
+	ConsoleLogs     bool            `json:"console"`
+	CustomTransport bool            `json:"custom_transport"`
 
 	maskDecisionRef ast.Ref
 }
@@ -275,6 +285,15 @@ func (c *Config) validateAndInjectDefaults(services []string, plugins []string) 
 
 	if c.Plugin == nil && c.Service == "" && !c.ConsoleLogs {
 		return fmt.Errorf("invalid decision_log config, must have a `service`, `plugin`, or `console` logging enabled")
+	}
+
+	if c.CustomTransport {
+		if c.Service == "" {
+			return fmt.Errorf("invalid decision_log config, must have a `service` when `custom_transport` is enabled")
+		}
+		if !transportExists(c.Service) {
+			return fmt.Errorf("no decision_log transport registered for key %q", c.Service)
+		}
 	}
 
 	min := defaultMinDelaySeconds
@@ -348,6 +367,7 @@ type Plugin struct {
 	logger    sdk.Logger
 	limiter   *rate.Limiter
 	metrics   metrics.Metrics
+	transport Transport
 }
 
 type reconfigure struct {
@@ -395,6 +415,10 @@ func New(parsedConfig *Config, manager *plugins.Manager) *Plugin {
 	manager.RegisterCompilerTrigger(plugin.compilerUpdated)
 
 	manager.UpdatePluginStatus(Name, &plugins.Status{State: plugins.StateNotReady})
+
+	if parsedConfig.CustomTransport {
+		plugin.transport = getTransport(parsedConfig.Service)
+	}
 
 	return plugin
 }
@@ -634,7 +658,12 @@ func (p *Plugin) oneShot(ctx context.Context) (ok bool, err error) {
 
 	for bs := oldBuffer.Pop(); bs != nil; bs = oldBuffer.Pop() {
 		if err == nil {
-			err = uploadChunk(ctx, p.manager.Client(p.config.Service), p.config.PartitionName, bs)
+			if p.config.CustomTransport {
+				err = p.transport.Send(ctx, p.config.PartitionName, bs)
+			} else {
+				err = uploadChunk(ctx, p.manager.Client(p.config.Service), p.config.PartitionName, bs)
+			}
+
 		}
 		if err != nil {
 			if p.limiter != nil {
@@ -672,6 +701,10 @@ func (p *Plugin) reconfigure(config interface{}) {
 
 	p.logger.Info("Decision log uploader configuration changed.")
 	p.config = *newConfig
+
+	if newConfig.CustomTransport {
+		p.transport = getTransport(newConfig.Service)
+	}
 }
 
 func (p *Plugin) encodeAndBufferEvent(event EventV1) {
@@ -813,4 +846,19 @@ func (p *Plugin) logEvent(event EventV1) error {
 		"type": "openpolicyagent.org/decision_logs",
 	}).Info("Decision Log")
 	return nil
+}
+
+func transportExists(id string) bool {
+	_, ok := transports[id]
+	return ok
+}
+
+func getTransport(id string) Transport {
+	transport, _ := transports[id]
+	return transport
+}
+
+// RegisterTransport registers a Transport for custom log shipping
+func RegisterTransport(id string, t Transport) {
+	transports[id] = t
 }
